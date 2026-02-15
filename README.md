@@ -4,7 +4,13 @@
 *Auteur : Maxendre Bauthamy*
 
 ## 📋 Contexte
-Ce projet vise à analyser le portefeuille automobile d'ENSAssuRances (300 000 contrats) pour identifier les facteurs de risque et proposer une nouvelle segmentation tarifaire pour l'exercice à venir.
+Le projet porte sur la base de données Sinistre et Contrat contenant des informations sur des contrats d’assurance automobile et les sinistres associés, pour une compagnie fictive ENSAssuRances. Cette base contient 320 000 lignes et permet d’étudier la fréquence, la répartition et les facteurs de risque liés aux sinistres automobiles.
+
+Mené au sein de la Direction Technique Automobile d'ENSAssurances, ce projet individuel placé sous l'égide de son directeur, Prof. Dr. Solym Manou-Abi, vise à : 
+- structurer, nettoyer et transformer la base de données sinistres et contrats,
+- produire des analyses exploratoires et statistiques détaillées,
+- visualiser les données afin de faciliter la prise de décision en assurance,
+- identifier les caractéristiques des contrats et véhicules à risque.
 
 ## 🛠️ Méthodologie
 1. **Ingénierie des Données :**
@@ -13,7 +19,8 @@ Ce projet vise à analyser le portefeuille automobile d'ENSAssuRances (300 000 c
    - Recodage des variables (Dates, Segments, Options).
 2. **Analyse Exploratoire :**
    - Étude de la sinistralité par âge, genre et segment de véhicule.
-   - Cartographie des zones à risque.
+   - Analyses temporelles
+   - Facteurs de risque
 
 ## 📂 Structure du Dépôt
 - `data/` : Contient les jeux de données bruts (Contrats & Sinistres) et le DataFrame après l'étape d'Ingénierie des Données.
@@ -21,8 +28,7 @@ Ce projet vise à analyser le portefeuille automobile d'ENSAssuRances (300 000 c
 - `Projet_Final.Rmd` : Le code source complet (R Markdown).
 - `Projet_Final.html` : Le rapport d'analyse généré et interactif.
 
-## 🚀 Comment exécuter le projet ?
-1. Cloner le dépôt.
-2. Ouvrir `Projet_Final.Rmd` dans RStudio.
-3. Installer les dépendances (`tidyverse`, `readxl`, `janitor`).
-4. Cliquer sur le bouton **Knit**.
+## 🎯 Livrables
+- `Dépôt RPubs` : Le lien RPubs : 
+- `Rapport final synthétique orienté aide à la décision` : Le fichier nommé "Projet_Final.Rmd".
+- `Documents pour chaque étape d’analyse` : Codes R présent le dossier "scripts".
