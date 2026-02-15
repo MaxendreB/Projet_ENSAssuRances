@@ -15,13 +15,9 @@ Ce projet vise à analyser le portefeuille automobile d'ENSAssuRances (300 000 c
    - Étude de la sinistralité par âge, genre et segment de véhicule.
    - Cartographie des zones à risque.
 
-## 📊 Résultats Clés
-- **Jeunes Conducteurs (18-25 ans) :** Sur-sinistralité confirmée (+40% de fréquence).
-- **Segment "Familiale" :** Coût total des sinistres le plus élevé du portefeuille.
-- **Option "Petit Rouleur" :** Permet de capter des profils à risque faible (rentabilité positive).
-
 ## 📂 Structure du Dépôt
-- `data/` : Contient les jeux de données bruts (Contrats & Sinistres).
+- `data/` : Contient les jeux de données bruts (Contrats & Sinistres) et le DataFrame après l'étape d'Ingénierie des Données.
+- `scripts/` : Contient les scripts R des parties Ingénierie des Données et Data Visualisation.
 - `Projet_Final.Rmd` : Le code source complet (R Markdown).
 - `Projet_Final.html` : Le rapport d'analyse généré et interactif.
 
