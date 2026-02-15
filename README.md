@@ -1,6 +1,7 @@
 # 🚗 Analyse des Risques Automobiles - ENSAssuRances
 
 **Projet de Data Science Actuarielle (R)**
+
 *Auteur : Maxendre Bauthamy*
 
 ## 📋 Contexte
