@@ -1,168 +1,173 @@
-# --- CONFIGURATION GRAPHIQUE ---
-library(scales) # Pour le formatage des axes (pourcentages, euros...)
+# ===================================================
+# PROJET ENSAssuRances - Volet 2 : Data Visualisation
+# Auteur : Maxendre Bauthamy
+# ===================================================
 
-# Définition d'un thème pro pour ENSAssuRances
+# Chargement des librairies
+library(tidyverse)
+library(scales)
+
+# Chargement des données préparées au Volet 1
+df_final <- readRDS("data/df_final.rds")
+
+# Définition du thème commun
 theme_set(theme_minimal() +
             theme(
               plot.title = element_text(face = "bold", size = 14, color = "#2C3E50"),
-              axis.title = element_text(face = "bold", size = 10),
+              axis.title = element_text(face = "bold"),
               legend.position = "bottom"
             ))
 
-# --- 1. DISTRIBUTION DES CONTRATS PAR ANNÉE ---
-p1 <- ggplot(df_final, aes(x = factor(idx_year))) +
-  geom_bar(fill = "steelblue") +
-  labs(title = "Évolution du Portefeuille",
-       subtitle = "Nombre de contrats par année d'exercice",
-       x = "Année d'exercice",
-       y = "Nombre de contrats") +
-  geom_text(stat='count', aes(label=..count..), vjust=-0.5)
 
-print(p1)
+# ANALYSES TEMPORELLES
 
-# --- 2. HISTOGRAMME DU TOTAL SINISTRES PAR ANNÉE ---
-# On agrège d'abord les sinistres par année
-sinistres_par_annee <- df_final %>%
+# Histogramme du total de sinistres par année
+df_sinistres_annee <- df_final %>%
   group_by(idx_year) %>%
   summarise(total_sinistres = sum(nb_sinistres_total))
 
-p2 <- ggplot(sinistres_par_annee, aes(x = factor(idx_year), y = total_sinistres)) +
-  geom_col(fill = "firebrick") +
-  labs(title = "Sinistralité Globale",
-       subtitle = "Nombre total de sinistres par année",
-       x = "Année",
-       y = "Nombre de sinistres") +
-  geom_text(aes(label=total_sinistres), vjust=-0.5)
-
-print(p2)
+ggplot(df_sinistres_annee, aes(x = factor(idx_year), y = total_sinistres)) +
+  geom_col(fill = "#C0392B") +
+  geom_text(aes(label = total_sinistres), vjust = -0.5) +
+  labs(title = "Total de sinistres par année",
+       x = "Année", y = "Nombre de sinistres")
 
 
-# --- 3. RÉPARTITION PAR SEGMENT (Bar Plot) ---
-p3 <- ggplot(df_final, aes(x = fct_infreq(vh_segment))) + # fct_infreq trie par fréquence
-  geom_bar(fill = "#2E86C1") +
-  labs(title = "Composition du Parc : Segments Commerciaux",
-       x = "Segment",
-       y = "Nombre de véhicules") +
-  coord_flip() # On met les barres à l'horizontale pour lire les noms
-
-print(p3)
-
-# --- 4. RÉPARTITION PAR ÉNERGIE ---
-p4 <- ggplot(df_final, aes(x = vh_energy, fill = vh_energy)) +
-  geom_bar() +
-  labs(title = "Répartition par Motorisation",
-       x = "Énergie",
-       y = "Nombre de véhicules") +
-  theme(legend.position = "none") # Pas besoin de légende si l'axe X est clair
-
-print(p4)
-
-# --- 5. DISTRIBUTION SELON LE GROUPE (SRA) ---
-# Le groupe SRA détermine souvent la prime.
-p5 <- ggplot(df_final, aes(x = factor(vh_group))) +
-  geom_bar(fill = "darkcyan") +
-  labs(title = "Distribution des Groupes de Véhicules",
-       x = "Groupe SRA",
-       y = "Effectif")
-
-print(p5)
+# Distribution des contrats par année d’exercice
+ggplot(df_final, aes(x = factor(idx_year))) +
+  geom_bar(fill = "#2980B9") +
+  geom_text(stat = 'count', aes(label = ..count..), vjust = -0.5) +
+  labs(title = "Distribution des contrats par année",
+       subtitle = "Évolution de la taille du portefeuille",
+       x = "Année", y = "Nombre de contrats actifs")
 
 
-# --- 6. OPTION PETIT ROULEUR (Comparaison) ---
-p6 <- ggplot(df_final, aes(x = ct_km, fill = ct_km)) +
-  geom_bar() +
-  labs(title = "Souscription à l'option Petit Rouleur",
-       x = "Option Petit Rouleur (O/N)",
-       y = "Nombre de contrats") +
-  scale_fill_manual(values = c("gray", "orange"))
+# ANALYSE VÉHICULE
 
-print(p6)
-
-# --- 7. SINISTRES SELON L'ÂGE DU CONDUCTEUR ---
-# Ici, on veut voir la distribution des âges de CEUX QUI ONT EU UN SINISTRE
-# On filtre d'abord pour ne garder que les sinistrés
-df_sinistres_seuls <- df_final %>% filter(nb_sinistres_total > 0)
-
-p7 <- ggplot(df_sinistres_seuls, aes(x = drv1age)) +
-  geom_histogram(binwidth = 2, fill = "purple", color = "white", alpha = 0.7) +
-  labs(title = "Distribution de l'âge des conducteurs accidentés",
-       subtitle = "Pic de sinistralité chez les jeunes ?",
-       x = "Âge du conducteur",
-       y = "Nombre de sinistres") +
-  scale_x_continuous(breaks = seq(18, 90, 10))
-
-print(p7)
-
-# --- 8. IMPACT DES ANTÉCÉDENTS (BONUS/MALUS) ---
-# Relation entre historique passé (claims_ant) et sinistres actuels
-p8 <- ggplot(df_final, aes(x = factor(claims_ant), y = nb_sinistres_total)) +
-  stat_summary(fun = "mean", geom = "bar", fill = "darkred") +
-  labs(title = "Fréquence moyenne de sinistre selon les antécédents",
-       subtitle = "Un conducteur ayant déjà eu des sinistres est-il plus à risque ?",
-       x = "Nombre de sinistres antérieurs (Années précédentes)",
-       y = "Fréquence moyenne (Sinistres/Contrat)")
-
-print(p8)
-
-
-# --- 9. SINISTRES PAR SEGMENT COMMERCIAL ---
-# On regarde le volume total de sinistres par type de voiture
-p9 <- df_final %>%
-  group_by(vh_segment) %>%
-  summarise(nb_sinistres = sum(nb_sinistres_total)) %>%
-  ggplot(aes(x = reorder(vh_segment, nb_sinistres), y = nb_sinistres)) +
-  geom_col(fill = "steelblue") +
+# Bar plot de répartition des types de véhicules
+ggplot(df_final, aes(x = fct_infreq(vh_segment))) +
+  geom_bar(fill = "#16A085") +
   coord_flip() +
-  labs(title = "Sinistralité par Segment de Véhicule",
-       x = "Segment",
-       y = "Volume total de sinistres")
-
-print(p9)
-
-# --- 10. RISQUE SELON LE SEXE (Nombre et Pourcentage) ---
-# On prépare les données : total sinistres par sexe / total contrats par sexe
-analyse_sexe <- df_final %>%
-  group_by(drv1sex) %>%
-  summarise(
-    Total_Contrats = n(),
-    Total_Sinistres = sum(nb_sinistres_total),
-    Frequence = Total_Sinistres / Total_Contrats
-  )
-
-# Visualisation de la Fréquence (plus pertinent que le nombre absolu)
-p10 <- ggplot(analyse_sexe, aes(x = drv1sex, y = Frequence, fill = drv1sex)) +
-  geom_col() +
-  geom_text(aes(label = percent(Frequence, accuracy = 0.01)), vjust = -0.5) +
-  labs(title = "Fréquence de sinistre par Genre",
-       subtitle = "Ratio : Nombre de sinistres / Nombre de contrats",
-       x = "Genre",
-       y = "Fréquence") +
-  scale_y_continuous(labels = scales::percent)
-
-print(p10)
+  labs(title = "Répartition des types de véhicules",
+       x = "Types de véhicules", y = "Nombre de véhicules")
 
 
-# --- 11. ZONES GÉOGRAPHIQUES À RISQUE ---
-# On extrait les 2 premiers chiffres du code INSEE pour avoir le département
-df_geo <- df_final %>%
-  mutate(departement = str_sub(ct_insee, 1, 2)) %>%
-  group_by(departement) %>%
+# Répartition des véhicules selon l’alimentation (essence, diesel, électrique…)
+ggplot(df_final, aes(x = vh_energy, fill = vh_energy)) +
+  geom_bar() +
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "Répartition des véhicules selon l’alimentation",
+       x = "Énergie", y = "Volume") +
+  theme(legend.position = "none")
+
+### ======================================================================================================================================================
+# Distribution des véhicules selon leur groupe
+ggplot(df_final, aes(x = factor(vh_group))) +
+  geom_bar(fill = "#8E44AD") +
+  labs(title = "Distribution des véhicules selon leur groupe",
+       subtitle = "Classification technique des véhicules",
+       x = "Groupe", y = "Effectif")
+### ======================================================================================================================================================
+
+
+# FACTEURS DE RISQUE
+
+# Histogramme des contrats avec ou sans option petit rouleur
+ggplot(df_final, aes(x = ct_km, fill = ct_km)) +
+  geom_bar() +
+  scale_fill_manual(values = c("gray", "orange")) +
+  labs(title = "Répartition Option Petit Rouleur",
+       x = "Option souscrite ?", y = "Nombre de contrats")
+
+
+# Nombre de sinistres en fonction de l’âge du sociétaire
+sinistres_seuls <- df_final %>% filter(nb_sinistres_total > 0)
+
+ggplot(sinistres_seuls, aes(x = drv1age)) +
+  geom_histogram(binwidth = 2, fill = "#E74C3C", color = "white", alpha = 0.8) +
+  labs(title = "Sinistres selon l'âge",
+       subtitle = "Distribution de l'âge des conducteurs accidentés",
+       x = "Âge du sociétaire", y = "Nombre de sinistres")
+
+
+# Nombre de sinistres selon le nombre de sinistres antécédents
+sinistres_par_ant <- df_final %>%
+  group_by(claims_ant) %>%
+  summarise(nb_sinistres = sum(nb_sinistres_total))
+
+ggplot(sinistres_par_ant, aes(x = factor(claims_ant), y = nb_sinistres)) +
+  geom_col(fill = "#34495E") +
+  labs(title = "Sinistres selon les antécédents",
+       x = "Nombre de sinistres passés (Historique)",
+       y = "Nombre de sinistres actuels (Total)")
+
+
+# Nombre de sinistres par segment commercial du véhicule
+vol_sinistre_segment <- df_final %>%
+  group_by(vh_segment) %>%
+  summarise(nb = sum(nb_sinistres_total))
+
+ggplot(vol_sinistre_segment, aes(x = reorder(vh_segment, nb), y = nb)) +
+  geom_col(fill = "#D35400") +
+  coord_flip() +
+  labs(title = "Nombre de sinistres par Segment (Type de véhicule)",
+       x = "", y = "Volume de sinistres")
+
+
+# ANALYSES AVANCÉES
+
+# Identification des véhicules à risque élevé
+# On définit le risque par la fréquence (Nb sinistres / Nb contrats)
+risque_vehicule <- df_final %>%
+  group_by(vh_segment) %>%
   summarise(
     nb_contrats = n(),
     nb_sinistres = sum(nb_sinistres_total),
     frequence = nb_sinistres / nb_contrats
   ) %>%
-  filter(nb_contrats > 100) %>% # On ne garde que les départements avec assez de volume
-  arrange(desc(frequence)) %>%
-  slice(1:15) # Top 15
+  arrange(desc(frequence))
 
-p11 <- ggplot(df_geo, aes(x = reorder(departement, frequence), y = frequence)) +
-  geom_col(fill = "darkorange") +
+ggplot(risque_vehicule, aes(x = reorder(vh_segment, frequence), y = frequence)) +
+  geom_col(fill = "#27AE60") +
   coord_flip() +
-  labs(title = "Top 15 Départements à plus forte fréquence de sinistre",
-       subtitle = "Zones à surveiller pour la tarification",
-       x = "Département (Code)",
-       y = "Fréquence de sinistre") +
-  scale_y_continuous(labels = scales::percent)
+  geom_text(aes(label = percent(frequence, 0.01)), hjust = -0.1) +
+  labs(title = "Véhicules à risque élevé",
+       subtitle = "Classement par fréquence de sinistre",
+       x = "", y = "Fréquence (Sinistres / Contrats)") +
+  scale_y_continuous(labels = percent)
 
-print(p11)
+
+# Nombre et pourcentage de sinistres selon le sexe
+analyse_sexe <- df_final %>%
+  group_by(drv1sex) %>%
+  summarise(nb_sinistres = sum(nb_sinistres_total)) %>%
+  mutate(pourcentage = nb_sinistres / sum(nb_sinistres))
+
+ggplot(analyse_sexe, aes(x = drv1sex, y = nb_sinistres, fill = drv1sex)) +
+  geom_col() +
+  geom_text(aes(label = paste0(nb_sinistres, "\n(", percent(pourcentage, 0.1), ")")), 
+            vjust = -0.5) +
+  labs(title = "Répartition des sinistres par Sexe",
+       x = "Genre", y = "Nombre de sinistres") +
+  theme(legend.position = "none")
+
+
+# Carte des zones géographiques à risque
+geo_risk <- df_final %>%
+  group_by(departement) %>%
+  summarise(
+    nb_sinistres = sum(nb_sinistres_total),
+    nb_contrats = n(),
+    frequence = nb_sinistres / nb_contrats
+  ) %>%
+  filter(nb_contrats > 100) %>%
+  arrange(desc(frequence)) %>%
+  slice(1:15)
+
+ggplot(geo_risk, aes(x = reorder(departement, frequence), y = frequence)) +
+  geom_col(fill = "firebrick") +
+  coord_flip() +
+  labs(title = "Zones Géographiques à Risque (Top 15)",
+       subtitle = "Départements avec la plus forte fréquence de sinistre",
+       x = "Code Département", y = "Fréquence") +
+  scale_y_continuous(labels = percent)
