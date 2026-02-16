@@ -6,9 +6,10 @@
 # Chargement des librairies
 library(tidyverse)
 library(scales)
+library(here)
 
 # Chargement des données préparées au Volet 1
-df_final <- readRDS("data/df_final.rds")
+df_final <- readRDS(here("data/df_final.rds"))
 
 # Définition du thème commun
 theme_set(theme_minimal() +
@@ -60,14 +61,13 @@ ggplot(df_final, aes(x = vh_energy, fill = vh_energy)) +
        x = "Énergie", y = "Volume") +
   theme(legend.position = "none")
 
-### ======================================================================================================================================================
+
 # Distribution des véhicules selon leur groupe
 ggplot(df_final, aes(x = factor(vh_group))) +
   geom_bar(fill = "#8E44AD") +
   labs(title = "Distribution des véhicules selon leur groupe",
        subtitle = "Classification technique des véhicules",
        x = "Groupe", y = "Effectif")
-### ======================================================================================================================================================
 
 
 # FACTEURS DE RISQUE
@@ -77,7 +77,7 @@ ggplot(df_final, aes(x = ct_km, fill = ct_km)) +
   geom_bar() +
   scale_fill_manual(values = c("gray", "orange")) +
   labs(title = "Répartition Option Petit Rouleur",
-       x = "Option souscrite ?", y = "Nombre de contrats")
+       x = "Option souscrite (O/N)", y = "Nombre de contrats")
 
 
 # Nombre de sinistres en fonction de l’âge du sociétaire
@@ -111,7 +111,7 @@ ggplot(vol_sinistre_segment, aes(x = reorder(vh_segment, nb), y = nb)) +
   geom_col(fill = "#D35400") +
   coord_flip() +
   labs(title = "Nombre de sinistres par Segment (Type de véhicule)",
-       x = "", y = "Volume de sinistres")
+       x = "", y = "Nombre de sinistres")
 
 
 # ANALYSES AVANCÉES
@@ -146,7 +146,9 @@ analyse_sexe <- df_final %>%
 ggplot(analyse_sexe, aes(x = drv1sex, y = nb_sinistres, fill = drv1sex)) +
   geom_col() +
   geom_text(aes(label = paste0(nb_sinistres, "\n(", percent(pourcentage, 0.1), ")")), 
-            vjust = -0.5) +
+            position = position_stack(vjust = 0.5),
+            color = "white",
+            fontface = "bold") +
   labs(title = "Répartition des sinistres par Sexe",
        x = "Genre", y = "Nombre de sinistres") +
   theme(legend.position = "none")
