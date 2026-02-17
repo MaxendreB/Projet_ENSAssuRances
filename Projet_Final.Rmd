@@ -1,7 +1,7 @@
 ---
-title: "Projet ENSAssuRances - Analyse des Risques"
+title: "Projet ENSAssuRances - Analyse des risques automobiles"
 author: "Maxendre Bauthamy"
-date: "`r Sys.Date()`"
+date: "16/02/2026"
 output: 
   html_document:
     theme: flatly
@@ -18,9 +18,7 @@ library(tidyverse)
 library(scales)
 library(knitr)
 library(kableExtra)
-library(lubridate)
-library(janitor)
-library(readxl)
+library(here)
 
 # Thème graphique global
 theme_set(theme_minimal() +
@@ -33,318 +31,276 @@ theme_set(theme_minimal() +
 ```
 
 ```{r chargement_donnees, include=FALSE}
-# Chargement des données préparées au Volet 1
-df_final <- readRDS("data/df_final.rds")
+# Chargement des données préparées
+df_final <- readRDS(here("data/df_final.rds"))
 ```
 
-# 1. Synthèse Exécutive
+**Contexte** : Ce rapport présente l'analyse technique du portefeuille automobile d'ENSAssuRances. L'objectif est d'identifier les segments à risque et de proposer des leviers d'optimisation tarifaire.
 
-**Objectif** : Analyser la sinistralité du portefeuille automobile d'ENSAssuRances sur 5 ans (300k+ contrats) pour orienter la stratégie tarifaire 2027.
+# 1. Synthèse des indicateurs (KPI)
 
-## Chiffres clés
+Avant d'entrer dans le détail des analyses, voici une vue d'ensemble du portefeuille ENSAssuRances sur la période étudiée.
 
 ```{r indicateurs_cles, echo=FALSE}
-# Calcul des indicateurs sur les données réelles
+# Calcul des indicateurs
 nb_contrats <- nrow(df_final)
-nb_sinistres_total <- sum(df_final$nb_sinistres_total)
+nb_sinistres <- sum(df_final$nb_sinistres_total)
 cout_total <- sum(df_final$cout_sinistres_total)
-cout_moyen <- cout_total / nb_sinistres_total
-taux_frequence <- nb_sinistres_total / nb_contrats
+freq_globale <- nb_sinistres / nb_contrats
+cout_moyen <- cout_total / nb_sinistres
 
-# Création d'un tableau récapitulatif
+# Création du tableau de bord
 tibble(
   Indicateur = c(
-    "Nombre de contrats analysés",
-    "Taux de fréquence global (Sinistres/Contrats)",
-    "Coût total des sinistres (5 ans)",
-    "Coût moyen par sinistre",
-    "Nombre total de sinistres"
+    "📝 Nombre de contrats",
+    "💥 Nombre de sinistres total",
+    "📊 Fréquence de sinistre",
+    "💰 Coût total des sinistres",
+    "📉 Coût moyen par sinistre"
   ),
   Valeur = c(
     format(nb_contrats, big.mark = " "),
-    percent(taux_frequence, accuracy = 0.01),
+    format(nb_sinistres, big.mark = " "),
+    scales::percent(freq_globale, accuracy = 0.01),
     paste(format(round(cout_total/1e6, 2), big.mark = " "), "M€"),
-    paste(format(round(cout_moyen, 0), big.mark = " "), "€"),
-    format(nb_sinistres_total, big.mark = " ")
+    paste(format(round(cout_moyen, 0), big.mark = " "), "€")
   )
-) %>%
-  kable(align = c("l", "r")) %>%
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), 
-                full_width = FALSE, position = "center")
+)%>%
+  kable(format = "html", align = c("l", "r")) %>%
+  kable_styling(full_width = FALSE, position = "center") %>%
+  row_spec(0, bold = TRUE, color = "white", background = "#333333")
 ```
 
 ---
 
-# 2. Analyse du Portefeuille
+# 2. Analyse temporelle
 
-Nous observons la dynamique commerciale du parc assuré.
+Nous analysons ici la dynamique du portefeuille pour vérifier la stabilité de notre base d'assurés.
 
-```{r distribution_portefeuille, fig.height=5}
+```{r distribution_contrats, fig.height=5}
 # Distribution des contrats par année
-df_final %>%
-  count(idx_year) %>%
-  ggplot(aes(x = factor(idx_year), y = n, fill = factor(idx_year))) +
-  geom_col(show.legend = FALSE) +
-  geom_text(aes(label = format(n, big.mark = " ")), vjust = -0.5, size = 4) +
-  scale_y_continuous(labels = label_number(big.mark = " ")) +
-  scale_fill_brewer(palette = "Blues") +
-  labs(
-    title = "Évolution du portefeuille par année",
-    subtitle = "Stock de contrats actifs au 31 décembre",
-    x = "Année",
-    y = "Nombre de contrats"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(face = "bold", size = 14),
-    axis.text = element_text(size = 11)
-  )
+ggplot(df_final, aes(x = factor(idx_year))) +
+  geom_bar(fill = "#2980B9") +
+  geom_text(stat = 'count', aes(label = ..count..), vjust = -0.5) +
+  labs(title = "Distribution des contrats par année",
+       subtitle = "Évolution de la taille du portefeuille",
+       x = "Année", y = "Nombre de contrats actifs")
 ```
 
-**Insight** : Le portefeuille montre une tendance stable. L'analyse des risques ci-dessous vise à optimiser la marge technique sur ce stock existant.
+**Analyse de la tendance des contrats** : Le portefeuille affiche une croissance globale de + 26% sur la période (passant de 55 227 à 69 674 contrats). On distingue deux phases : une progression régulière jusqu'en 2021, suivie d'une accélération marquée en 2023 (+ 13% en un an). Cette dynamique commerciale positive nécessite une surveillance accrue du risque, les affaires nouvelles présentant souvent une sinistralité plus volatile avec un effet de nouveauté.
+
+
+```{r distribution_sinistres, fig.height=5}
+# Histogramme du total de sinistres par année
+df_sinistres_annee <- df_final %>%
+  group_by(idx_year) %>%
+  summarise(total_sinistres = sum(nb_sinistres_total))
+
+ggplot(df_sinistres_annee, aes(x = factor(idx_year), y = total_sinistres)) +
+  geom_col(fill = "#C0392B") +
+  geom_text(aes(label = total_sinistres), vjust = -0.5) +
+  labs(title = "Total de sinistres par année",
+       x = "Année", y = "Nombre de sinistres")
+```
+
+**Analyse de la tendance des sinistres** : L'année 2020 marque un point très bas avec 3 781 sinistres, dû à la baisse du trafic lors de la crise sanitaire. Cependant, la dynamique s'inverse par la suite. En 2023, on observe une hausse des sinistres de + 21,6%, alors que le portefeuille n'a crû que de + 13%. Les sinistres augmentent beaucoup plus vite que le nombre de nouveaux clients. Cela signifie que la fréquence des accidents augmente.
 
 ---
 
-# 3. Facteurs de Risque (Tarification)
+# 3. Analyse du parc véhicule
 
-Cette section explore les corrélations entre les caractéristiques des assurés et la fréquence des sinistres.
+Comprendre ce que nous assurons permet de mieux anticiper les coûts de réparation.
 
-## 3.1 Impact de l'Âge du Conducteur
-
-```{r age_conducteur, fig.height=6}
-# Consigne : Nombre de sinistres en fonction de l'âge du sociétaire
-p7 <- df_final %>%
-  filter(nb_sinistres_total > 0) %>% # Focus sur les sinistrés
-  ggplot(aes(x = drv1age)) +
-  geom_histogram(binwidth = 2, fill = "#E74C3C", color = "white", alpha = 0.8) +
-  geom_vline(aes(xintercept = mean(drv1age, na.rm = TRUE)), linetype="dashed", size = 1) +
-  labs(
-    title = "Distribution de l'âge des conducteurs accidentés",
-    subtitle = "Pic de fréquence marqué chez les jeunes conducteurs",
-    x = "Âge du conducteur",
-    y = "Nombre de sinistres"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(face = "bold", size = 14)
-  )
-
-print(p7)
-```
-
-```{r tableau_age}
-# Tableau des taux de sinistralité par tranche d'âge
-df_final %>%
-  filter(!is.na(drv1age)) %>%
-  mutate(tranche_age = cut(drv1age, 
-                           breaks = c(17, 25, 35, 50, 65, 100),
-                           labels = c("18-25 ans", "26-34 ans", "35-49 ans", 
-                                      "50-64 ans", "65+ ans"),
-                           include.lowest = TRUE)) %>%
-  group_by(tranche_age) %>%
-  summarise(
-    `Vol. Contrats` = n(),
-    `Taux Fréquence` = percent(mean(nb_sinistres_total), accuracy = 0.01),
-    `Coût moyen` = paste(format(round(mean(cout_sinistres_total), 0), big.mark = " "), "€"),
-    .groups = "drop"
-  ) %>%
-  kable(align = c("l", "r", "r", "r")) %>%
-  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE) %>%
-  row_spec(1, bold = TRUE, color = "white", background = "#E74C3C")
-```
-
-**Recommandation** : La sur-sinistralité des 18-25 ans est confirmée. Il est recommandé d'appliquer une surprime ciblée.
-
-## 3.2 Impact du Type de Véhicule (Segment)
-
-Quels sont les véhicules qui coûtent le plus cher à la compagnie ?
-
-```{r segment_vehicule, fig.height=7}
-# Consigne : Nombre de sinistres par segment commercial
-df_final %>%
-  filter(!is.na(vh_segment)) %>%
-  group_by(vh_segment) %>%
-  summarise(
-    cout_total = sum(cout_sinistres_total),
-    nb_sinistres = sum(nb_sinistres_total),
-    .groups = "drop"
-  ) %>%
-  ggplot(aes(x = reorder(vh_segment, cout_total), y = cout_total/1e6)) +
-  geom_col(fill = "#2ECC71") +
-  geom_text(aes(label = paste(format(round(cout_total/1e6, 1), big.mark = " "), "M€")), 
-            hjust = -0.1, size = 3.5) +
+```{r repartition_vhtype, fig.height=5}
+# Répartition par type de véhicule
+ggplot(df_final, aes(x = fct_infreq(vh_segment))) +
+  geom_bar(fill = "#16A085") +
   coord_flip() +
-  labs(
-    title = "Charge sinistre totale par segment",
-    subtitle = "Classement par coût total cumulé sur 5 ans",
-    x = "",
-    y = "Coût total (Millions €)"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(face = "bold", size = 14)
-  )
+  labs(title = "Répartition des types de véhicules",
+       x = "Types de véhicules", y = "Nombre de véhicules")
 ```
 
-## 3.3 Impact de la Motorisation et du Groupe SRA
+**Analyse de la répartition par type de véhicule** : Le parc assuré est dominé par les Citadines (~120k véhicules), suivies des Familiales et des Compactes. Les SUV représentent la part la plus faible du portefeuille. Cette répartition est un avantage : les citadines coûtent généralement moins cher à réparer en cas d'accident que les gros véhicules, ce qui limite nos dépenses.
 
-```{r motorisation_groupe, fig.height=5}
-# Consigne : Répartition selon l'alimentation
-p_energy <- ggplot(df_final, aes(x = vh_energy, fill = vh_energy)) +
+
+```{r repartition_type_alim, fig.height=5}
+# Répartition des véhicules selon l’alimentation (essence, diesel, électrique…)
+ggplot(df_final, aes(x = vh_energy, fill = vh_energy)) +
   geom_bar() +
   scale_fill_brewer(palette = "Set2") +
-  labs(title = "Répartition par Motorisation", x = "Énergie", y = "Volume") +
-  theme_minimal() +
-  theme(legend.position = "none", plot.title = element_text(face = "bold"))
-
-# Consigne : Distribution selon le groupe
-p_group <- ggplot(df_final, aes(x = factor(vh_group))) +
-  geom_bar(fill = "#8E44AD") +
-  labs(title = "Distribution des Groupes SRA", x = "Groupe", y = "Volume") +
-  theme_minimal() +
-  theme(plot.title = element_text(face = "bold"))
-
-# Affichage côte à côte
-print(p_energy)
-print(p_group)
+  labs(title = "Répartition des véhicules selon l’alimentation",
+       x = "Énergie", y = "Volume") +
+  theme(legend.position = "none")
 ```
 
-## 3.4 Analyse des Sociétaires (Sexe & Antécédents)
+**Analyse de la répartition par type d'alimentation** : Le parc est dominé par les motorisations Essence, suivies du Diesel, ce qui est cohérent avec la forte proportion de citadines. Les véhicules Électriques/Hybrides représentent un tiers significatif du portefeuille. La prédominance des moteurs thermiques permet de garder des coûts de réparation bas, contrairement aux véhicules électriques souvent onéreux à réparer
 
-```{r sexe_antecedents, fig.height=5}
-# Consigne : Nombre et pourcentage de sinistres selon le sexe
+---
+
+# 4. Facteurs de risque
+
+C'est le cœur de l'étude : qui a le plus d'accidents ?
+
+## 4.1 L'âge du conducteur
+
+```{r age_conducteur, fig.height=5}
+# Nombre de sinistres en fonction de l’âge du sociétaire
+sinistres_seuls <- df_final %>% filter(nb_sinistres_total > 0)
+
+ggplot(sinistres_seuls, aes(x = drv1age)) +
+  geom_histogram(binwidth = 2, fill = "#E74C3C", color = "white", alpha = 0.8) +
+  labs(title = "Sinistres selon l'âge",
+       subtitle = "Distribution de l'âge des conducteurs accidentés",
+       x = "Âge du sociétaire", y = "Nombre de sinistres")
+```
+
+**Analyse de la distribution par âge** : Le graphique révèle que le plus gros volume de sinistres est généré par la tranche d'âge 35-50 ans. Contrairement à l'attendu théorique, les jeunes conducteurs (18-25 ans) ne représentent pas le volume principal d'accidents en valeur absolue, ce qui suggère qu'ils sont soit sous-représentés dans le portefeuille, soit que leur impact est dilué par la masse des conducteurs expérimentés.
+
+
+## 4.2 Le sexe du conducteur
+
+```{r sexe_conducteur, fig.height=5}
+# Nombre et pourcentage de sinistres selon le sexe
 analyse_sexe <- df_final %>%
   group_by(drv1sex) %>%
   summarise(nb_sinistres = sum(nb_sinistres_total)) %>%
   mutate(pourcentage = nb_sinistres / sum(nb_sinistres))
 
-p_sexe <- ggplot(analyse_sexe, aes(x = drv1sex, y = nb_sinistres, fill = drv1sex)) +
-  geom_col(width = 0.5) +
-  geom_text(aes(label = percent(pourcentage, 0.1)), vjust = -0.5) +
-  labs(title = "Sinistralité par Genre", x = "Sexe", y = "Nb Sinistres") +
-  theme_minimal() +
-  theme(legend.position = "none", plot.title = element_text(face = "bold"))
-
-# Consigne : Nombre de sinistres selon les antécédents
-p_ant <- df_final %>%
-  group_by(claims_ant) %>%
-  summarise(nb_sinistres = sum(nb_sinistres_total)) %>%
-  ggplot(aes(x = factor(claims_ant), y = nb_sinistres)) +
-  geom_col(fill = "#34495E") +
-  labs(title = "Sinistres selon les antécédents", x = "Nb sinistres passés", y = "Nb sinistres actuels") +
-  theme_minimal() +
-  theme(plot.title = element_text(face = "bold"))
-
-print(p_sexe)
-print(p_ant)
-```
-
-## 3.5 Focus : Option "Petit Rouleur"
-
-L'option kilométrique permet-elle de sélectionner de meilleurs risques ?
-
-```{r option_petit_rouleur, fig.height=5}
-# Consigne : Histogramme des contrats avec ou sans option petit rouleur
-df_final %>%
-  group_by(ct_km) %>%
-  summarise(
-    frequence = mean(nb_sinistres_total),
-    cout_moyen = mean(cout_sinistres_total)
-  ) %>%
-  ggplot(aes(x = ct_km, y = frequence, fill = ct_km)) +
+ggplot(analyse_sexe, aes(x = drv1sex, y = nb_sinistres, fill = drv1sex)) +
   geom_col() +
-  scale_fill_manual(values = c("#95A5A6", "#F1C40F")) +
-  geom_text(aes(label = round(frequence, 4)), vjust = -0.5) +
-  labs(
-    title = "Comparaison de la fréquence : Option Petit Rouleur",
-    x = "Option souscrite (O/N)",
-    y = "Fréquence moyenne de sinistre"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(face = "bold", size = 14),
-    legend.position = "none"
-  )
+  geom_text(aes(label = paste0(nb_sinistres, "\n(", percent(pourcentage, 0.1), ")")), 
+            position = position_stack(vjust = 0.5),
+            color = "white",
+            fontface = "bold") +
+  labs(title = "Répartition des sinistres par Sexe",
+       x = "Genre", y = "Nombre de sinistres") +
+  theme(legend.position = "none")
 ```
+
+**Analyse comparative H/F** : Les données révèlent que les hommes sont impliqués dans 59,3% des sinistres enregistrés, contre 40,7% pour les femmes. Toutefois, pour affiner le risque sans discrimination, il faudrait croiser cette donnée avec le kilométrage annuel pour vérifier si la fréquence au kilomètre parcouru est réellement différente.
+
+
+## 4.3 Antécédents du sinistré
+
+```{r antecedents, fig.height=5}
+# Nombre de sinistres selon le nombre de sinistres antécédents
+sinistres_par_ant <- df_final %>%
+  group_by(claims_ant) %>%
+  summarise(nb_sinistres = sum(nb_sinistres_total))
+
+ggplot(sinistres_par_ant, aes(x = factor(claims_ant), y = nb_sinistres)) +
+  geom_col(fill = "#34495E") +
+  labs(title = "Sinistres selon les antécédents",
+       x = "Nombre de sinistres passés (Historique)",
+       y = "Nombre de sinistres actuels (Total)")
+```
+
+**Analyse prédictive** : En volume absolu, la majorité des sinistres de l'année provient d'assurés sans antécédents, ce qui est logique car ils constituent la base majoritaire du portefeuille. L'historique est un excellent prédicteur du risque. Un assuré ayant déjà eu 1 ou 2 sinistres a une probabilité beaucoup plus forte d'en avoir un nouveau l'année suivante. C'est ce qui justifie l'application du système de Malus.
+
+
+## 4.4 L'option "Petit Rouleur"
+
+```{r petit_rouleur, fig.height=5}
+# Histogramme des contrats avec ou sans option petit rouleur
+ggplot(df_final, aes(x = ct_km, fill = ct_km)) +
+  geom_bar() +
+  scale_fill_manual(values = c("gray", "orange")) +
+  labs(title = "Répartition Option Petit Rouleur",
+       x = "Option souscrite (O/N)", y = "Nombre de contrats")
+```
+
+**Analyse de l'option** : L'option "Petit Rouleur" concerne environ 20% du portefeuille actuel, la grande majorité des assurés restant sur des contrats classiques. Ce taux modéré suggère un potentiel de développement important, notamment via le ciblage des assurés dont le kilométrage réel a diminué ces dernières année avec l'impact du télétravail.
 
 ---
 
-# 4. Cartographie des Risques
+# 5. Identification des risques élevés
 
-Identification des départements les plus sinistrés (Top 15).
+Nous croisons les données pour identifier les segments déficitaires.
 
-```{r cartographie_risques, fig.height=8}
-# Consigne : Carte des zones géographiques à risque
-# Nous utilisons les VRAIES données (code INSEE) au lieu de simuler
-df_geo <- df_final %>%
-  # Extraction des 2 premiers chiffres du code INSEE pour le département
-  mutate(departement = str_sub(ct_insee, 1, 2)) %>%
-  group_by(departement) %>%
+## 5.1 Classement des véhicules à risque élevé
+
+```{r vh_risque_eleve, fig.height=5}
+# Identification des véhicules à risque élevé
+# On définit le risque par la fréquence (Nb sinistres / Nb contrats)
+risque_vehicule <- df_final %>%
+  group_by(vh_segment) %>%
   summarise(
     nb_contrats = n(),
     nb_sinistres = sum(nb_sinistres_total),
-    frequence = nb_sinistres / nb_contrats,
-    .groups = "drop"
+    frequence = nb_sinistres / nb_contrats
   ) %>%
-  filter(nb_contrats > 500) %>% # Filtre pour significativité statistique
-  arrange(desc(frequence)) %>%
-  head(15)
+  arrange(desc(frequence))
 
-ggplot(df_geo, aes(x = reorder(departement, frequence), y = frequence)) +
-  geom_col(fill = "#34495E") +
-  geom_text(aes(label = percent(frequence, accuracy = 0.1)), 
-            hjust = -0.1, size = 3) +
+ggplot(risque_vehicule, aes(x = reorder(vh_segment, frequence), y = frequence)) +
+  geom_col(fill = "#27AE60") +
   coord_flip() +
-  scale_y_continuous(labels = percent_format()) +
-  labs(
-    title = "Top 15 Départements à Risque",
-    subtitle = "Classement par fréquence de sinistre (Départements > 500 contrats)",
-    x = "Département",
-    y = "Fréquence"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(face = "bold", size = 14)
-  )
+  geom_text(aes(label = percent(frequence, 0.01)), hjust = -0.1) +
+  labs(title = "Véhicules à risque élevé",
+       subtitle = "Classement par fréquence de sinistre",
+       x = "", y = "Fréquence (Sinistres / Contrats)") +
+  scale_y_continuous(labels = percent)
 ```
+
+**Analyse de la fréquence par segment** : L'analyse révèle une homogénéité de la fréquence de sinistre entre les principaux segments : Citadines, Compactes et SUV affichent tous un taux proche de 11,2%. Seul le segment Familiale se distingue par une sinistralité légèrement plus faible avec un taux à 10,91%. Cette quasi-égalité implique que le segment commercial n'est pas un levier pertinent pour segmenter le risque fréquence. La différenciation tarifaire entre ces véhicules devra donc reposer essentiellement sur le coût moyen des réparations et non sur la probabilité d'accident.
+
+
+## 5.2 Cartographie (Top Départements)
+
+```{r cartographie, fig.height=5}
+# Carte des zones géographiques à risque
+geo_risk <- df_final %>%
+  group_by(departement) %>%
+  summarise(
+    nb_sinistres = sum(nb_sinistres_total),
+    nb_contrats = n(),
+    frequence = nb_sinistres / nb_contrats
+  ) %>%
+  filter(nb_contrats > 100) %>%
+  arrange(desc(frequence)) %>%
+  slice(1:15)
+
+ggplot(geo_risk, aes(x = reorder(departement, frequence), y = frequence)) +
+  geom_col(fill = "firebrick") +
+  coord_flip() +
+  labs(title = "Zones Géographiques à Risque (Top 15)",
+       subtitle = "Départements avec la plus forte fréquence de sinistre",
+       x = "Code Département", y = "Fréquence") +
+  scale_y_continuous(labels = percent)
+```
+
+**Analyse territoriale** : Le classement fait apparaître une forte sinistralité dans le Loiret (45), suivi par le Rhône (69) et la Seine-et-Marne (77), avec des fréquences dépassant les 12%. Ce Top 15 mêle des zones à forte densité urbaine (Lyon, Ile-de-France) propices aux chocs matériels fréquents, et des départements plus ruraux. Cette hétérogénéité justifie pleinement l'application d'un zonier tarifaire pour ajuster la prime au lieu de garage du véhicule.
 
 ---
 
-# 5. Conclusion & Plan d'Action
+# 6. Synthèse du portefeuille ENSAssuRances
 
-Pour améliorer la rentabilité d'ENSAssuRances, nous préconisons :
+L’étude des données sur la période 2019–2023 permet de dégager plusieurs constats sur la situation du portefeuille ENSAssuRances :
 
-## Actions Prioritaires
+* **Une croissance commerciale contrastée** : Le portefeuille connaît une forte progression, avec une hausse de 13 % du nombre de contrats en 2023. Toutefois, cette dynamique s’accompagne d’une dégradation technique, la charge des sinistres ayant augmenté plus rapidement (+ 21,6 %) que le portefeuille lui-même.
+* **Des fondamentaux solides :** La structure du parc assuré, majoritairement composée de véhicules citadins thermiques, ainsi que la forte proportion de conducteurs sans antécédents, contribuent à limiter la hausse du coût moyen des sinistres.
+* **Des zones de sous-performance** : Certains segments pèsent négativement sur la rentabilité du portefeuille, en particulier les jeunes conducteurs et certaines zones géographiques denses, dont le niveau de risque semble insuffisamment pris en compte dans la tarification actuelle.
 
-**1. Refonte Tarifaire Jeunes** : Appliquer une hausse tarifaire sur les <25 ans dont la fréquence est double par rapport à la moyenne.
+---
 
-**2. Franchises Segments Premium** : Les véhicules "Familiales" et "Luxe" concentrent les coûts. Une augmentation des franchises permettrait de baisser la charge.
+# 7. Recommandations stratégiques
 
-**3. Promotion "Petit Rouleur"** : L'analyse montre que cette option capte des profils très rentables (Fréquence plus faible). Il faut accentuer la communication marketing dessus.
+Pour améliorer la rentabilité du portefeuille et limiter les risques de dégradation future, voici des idées d'actions à mener :
 
-## Indicateurs de Suivi (KPIs)
+**Ajustement tarifaire**
 
-```{r kpi_suivi, echo=FALSE}
-tibble(
-  KPI = c(
-    "Taux de fréquence global",
-    "Coût moyen par sinistre",
-    "Part des jeunes conducteurs"
-  ),
-  `Cible 2027` = c(
-    "< 8%",
-    "< 2 500 €",
-    "< 15%"
-  ),
-  `Action` = c(
-    "Prévention & Sélection",
-    "Réseaux de garages agréés",
-    "Politique tarifaire stricte"
-  )
-) %>%
-  kable(align = c("l", "c", "l")) %>%
-  kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
-```
+* **Révision du zonier géographique** : Mettre en place une majoration tarifaire sur les départements appartenant au top 3 des fréquences de sinistres (45, 69 et 77), afin de compenser leur sur-sinistralité structurelle.
+* **Adaptation de la tarification des jeunes conducteurs** : La fréquence élevée observée chez les assurés âgés de 18 à 25 ans justifie une augmentation de la prime de référence pour ce segment ou l’application de franchises plus élevées.
+* **Respect de la neutralité de genre** : Le déséquilibre observé entre assurés hommes et femmes (60/40) ne pouvant être tarifé directement, il est recommandé d’intégrer ce risque via le critère du kilométrage annuel, fortement corrélé à la sinistralité.
+
+**Action commerciale et prévention**
+
+* **Développement de l’offre “Petit Rouleur”** : Bien que ce segment représente seulement 20 % du portefeuille, il présente une sinistralité favorable. Une campagne marketing ciblée visant à orienter les assurés à faible kilométrage vers cette offre permettrait de renforcer la fidélisation des meilleurs profils.
+* **Renforcement de la prévention** : Proposer des stages de conduite aux assurés ayant déclaré un sinistre, identifiés comme présentant un risque accru de récidive, afin de limiter l’entrée dans une trajectoire de multi-sinistralité.
+
+**Pilotage Technique**
+
+* **Suivi spécifique des SUV** : Même si la fréquence de sinistres de ce segment reste stable, le coût moyen des réparations doit faire l’objet d’un suivi trimestriel, compte tenu de l’augmentation du prix des pièces détachées.
+* **Indexation tarifaire 2024** : Face à la hausse de la fréquence observée en 2023, une indexation générale des primes, indépendamment de l’inflation, apparaît nécessaire pour enrayer la dégradation de la marge technique.
 
 ---
 
