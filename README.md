@@ -23,7 +23,7 @@ Mené au sein de la Direction Technique Automobile d'ENSAssurances, ce projet in
    - Analyses temporelles
    - Facteurs de risque
 
-## 📂 Structure du Dépôt
+## 📂 Structure du dépôt
 - `data/` : Contient les jeux de données bruts (Contrats & Sinistres) et le DataFrame après l'étape d'Ingénierie des Données.
 - `scripts/` : Contient les scripts R des parties Ingénierie des Données et Data Visualisation.
 - `Projet_Final.Rmd` : Le code source complet (R Markdown).
