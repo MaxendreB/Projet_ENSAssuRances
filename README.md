@@ -1,6 +1,6 @@
-# 🚗 Analyse des Risques Automobiles - ENSAssuRances
+# 🚗 Analyse des risques automobiles - ENSAssuRances
 
-**Projet de Data Science Actuarielle (R)**
+**Projet de Data Science (R)**
 
 *Auteur : Maxendre Bauthamy*
 
@@ -30,6 +30,6 @@ Mené au sein de la Direction Technique Automobile d'ENSAssurances, ce projet in
 - `Projet_Final.html` : Le rapport d'analyse généré et interactif.
 
 ## 🎯 Livrables
-- `Dépôt RPubs` : Le lien RPubs : 
+- `Dépôt RPubs` : Lien RPubs : https://rpubs.com/MaxB/Projet_ENSAssuRances
 - `Rapport final synthétique orienté aide à la décision` : Le fichier nommé "Projet_Final.Rmd".
 - `Documents pour chaque étape d’analyse` : Codes R présent le dossier "scripts".
